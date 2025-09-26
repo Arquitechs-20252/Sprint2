@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+
+{% block title %}Productos{% endblock %}
+
+{% block content %}
+<h2>📋 Lista de productos</h2>
+
+<!-- Formulario de búsqueda -->
+<form method="get" action="/product/" class="d-flex mb-3">
+    <input type="text" name="q" class="form-control me-2" placeholder="Buscar por código de barras" value="{{ query|default:'' }}">
+    <button class="btn btn-primary" type="submit">🔍 Buscar</button>
+</form>
+
+<table class="table table-bordered table-hover">
+    <thead class="table-light">
+        <tr>
+            <th>Código</th>
+            <th>Nombre</th>
+            <th>Ubicación</th>
+            <th>Cantidad</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for p in productos %}
+        <tr>
+            <td><a href="/product/{{ p.barcode }}/">{{ p.barcode }}</a></td>
+            <td>{{ p.name }}</td>
+            <td>{{ p.location }}</td>
+            <td>{{ p.quantity }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="4" class="text-center">No se encontraron productos</td></tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}
+
