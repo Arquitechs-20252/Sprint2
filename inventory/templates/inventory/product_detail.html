@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+
+{% block title %}Detalle Producto{% endblock %}
+
+{% block content %}
+<h2>🔍 Detalle del producto</h2>
+<ul class="list-group">
+    <li class="list-group-item"><b>Código:</b> {{ producto.barcode }}</li>
+    <li class="list-group-item"><b>Nombre:</b> {{ producto.name }}</li>
+    <li class="list-group-item"><b>Ubicación:</b> {{ producto.location }}</li>
+    <li class="list-group-item"><b>Cantidad:</b> {{ producto.quantity }}</li>
+</ul>
+<a href="/product/{{ producto.barcode }}/out/" class="btn btn-danger mt-3">📤 Sacar uno</a>
+{% endblock %}

@@ -1,0 +1,102 @@
+[
+  {
+    "model": "inventory.product",
+    "pk": 1,
+    "fields": {
+      "barcode": "CON0001",
+      "name": "Taladro Percutor Bosch",
+      "location": "Estante C1",
+      "quantity": 12
+    }
+  },
+  {
+    "model": "inventory.product",
+    "pk": 2,
+    "fields": {
+      "barcode": "CON0002",
+      "name": "Martillo Industrial Stanley",
+      "location": "Estante C2",
+      "quantity": 30
+    }
+  },
+  {
+    "model": "inventory.product",
+    "pk": 3,
+    "fields": {
+      "barcode": "CON0003",
+      "name": "Cemento Portland 50kg",
+      "location": "Zona Materiales A",
+      "quantity": 100
+    }
+  },
+  {
+    "model": "inventory.product",
+    "pk": 4,
+    "fields": {
+      "barcode": "CON0004",
+      "name": "Tubos de Acero 2''",
+      "location": "Zona Industrial B",
+      "quantity": 60
+    }
+  },
+  {
+    "model": "inventory.product",
+    "pk": 5,
+    "fields": {
+      "barcode": "CON0005",
+      "name": "Escalera Aluminio 6 peldaños",
+      "location": "Estante D1",
+      "quantity": 15
+    }
+  },
+  {
+    "model": "inventory.product",
+    "pk": 6,
+    "fields": {
+      "barcode": "CON0006",
+      "name": "Guantes de Seguridad",
+      "location": "Estante E2",
+      "quantity": 200
+    }
+  },
+  {
+    "model": "inventory.product",
+    "pk": 7,
+    "fields": {
+      "barcode": "CON0007",
+      "name": "Botas Industriales PVC",
+      "location": "Estante E3",
+      "quantity": 50
+    }
+  },
+  {
+    "model": "inventory.product",
+    "pk": 8,
+    "fields": {
+      "barcode": "CON0008",
+      "name": "Discos de Corte Metal",
+      "location": "Estante C5",
+      "quantity": 80
+    }
+  },
+  {
+    "model": "inventory.product",
+    "pk": 9,
+    "fields": {
+      "barcode": "CON0009",
+      "name": "Compresor de Aire 50L",
+      "location": "Zona Máquinas",
+      "quantity": 5
+    }
+  },
+  {
+    "model": "inventory.product",
+    "pk": 10,
+    "fields": {
+      "barcode": "CON0010",
+      "name": "Soldadora Eléctrica Inverter",
+      "location": "Zona Máquinas",
+      "quantity": 7
+    }
+  }
+]

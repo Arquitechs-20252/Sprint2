@@ -1,7 +1,9 @@
 from django.contrib import admin
-from .models import Product
+from .models import InventoryProduct  # 👈 corregido
 
-@admin.register(Product)
-class ProductAdmin(admin.ModelAdmin):
-    list_display = ('barcode','location','quantity','last_updated')
-    search_fields = ('barcode','location')
+@admin.register(InventoryProduct)
+class InventoryProductAdmin(admin.ModelAdmin):
+    list_display = ('id', 'name', 'barcode', 'location', 'quantity', 'last_updated')
+    search_fields = ('name', 'barcode', 'location')
+    list_filter = ('location',)
+
