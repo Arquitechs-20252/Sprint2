@@ -4,6 +4,21 @@
 #
 # Infraestructura para laboratorio con Application Load Balancer
 #
+# Elementos a desplegar en AWS:
+# 1. Grupos de seguridad:
+#    - traffic-django (puerto 8080)
+#    - traffic-lb (puerto 80)
+#    - traffic-db (puerto 5432)
+#    - traffic-ssh (puerto 22)
+#
+# 2. Application Load Balancer:
+#    - inventorying-LB
+#    - Target Group: inventorying-app-group
+#
+# 3. Instancias EC2:
+#    - arquitechs-db (PostgreSQL instalado y configurado)
+#    - inventorying-a (Inventorying app instalada y migrada)
+#    - inventorying-b (Inventorying app instalada y migrada)
 # ******************************************************************
 
 variable "region" {
@@ -70,15 +85,22 @@ resource "aws_security_group" "traffic_django" {
   description = "Allow application traffic on port 8080"
 
   ingress {
-    description = "HTTP access for service layer"
+    description = "HTTP access for Django app"
     from_port   = 8080
     to_port     = 8080
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
 
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
   tags = merge(local.common_tags, {
-    Name = "traffic-services"
+    Name = "traffic-django"
   })
 }
 
@@ -95,7 +117,6 @@ resource "aws_security_group" "traffic_lb" {
   }
 
   egress {
-    description = "Allow all outbound traffic"
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
@@ -107,12 +128,36 @@ resource "aws_security_group" "traffic_lb" {
   })
 }
 
+resource "aws_security_group" "traffic_db" {
+  name        = "traffic-db"
+  description = "Allow PostgreSQL access"
+
+  ingress {
+    description = "Traffic to DB"
+    from_port   = 5432
+    to_port     = 5432
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = merge(local.common_tags, {
+    Name = "traffic-db"
+  })
+}
+
 resource "aws_security_group" "traffic_ssh" {
   name        = "traffic-ssh"
   description = "Allow SSH access"
 
   ingress {
-    description = "SSH access from anywhere"
+    description = "SSH"
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
@@ -120,7 +165,6 @@ resource "aws_security_group" "traffic_ssh" {
   }
 
   egress {
-    description = "Allow all outbound traffic"
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
@@ -132,6 +176,10 @@ resource "aws_security_group" "traffic_ssh" {
   })
 }
 
+# =============================
+# 🚀 Instancias de INVENTORYING
+# =============================
+
 resource "aws_instance" "inventorying" {
   for_each = toset(["a", "b"])
 
@@ -142,30 +190,37 @@ resource "aws_instance" "inventorying" {
 
   user_data = <<-EOT
               #!/bin/bash
+              set -e
+
               sudo apt-get update -y
               sudo apt-get install -y python3-pip git build-essential libpq-dev python3-dev
 
               mkdir -p /labs
               cd /labs
 
-              if [ ! -d Sprint2 ]; then
+              # Clonar el repositorio
+              if [ ! -d "Sprint2" ]; then
                 git clone ${local.repository}
               fi
 
               cd Sprint2
               git fetch origin ${local.branch}
               git checkout ${local.branch}
+
               sudo pip3 install --upgrade pip --break-system-packages
               sudo pip3 install -r requirements.txt --break-system-packages
-              
-              # Aplicar migraciones locales (SQLite)
+
+              # Aplicar migraciones con SQLite
               sudo python3 manage.py makemigrations
               sudo python3 manage.py migrate
-              
-              # Crear producto inicial
+
+              # Crear un producto inicial
               echo "from inventory.models import InventoryProduct; \
               InventoryProduct.objects.create(name='Producto Inicial', barcode='INIT-001', location='Bodega Principal', quantity=100)" \
               | sudo python3 manage.py shell
+
+              # Ejecutar servidor Django
+              nohup sudo python3 manage.py runserver 0.0.0.0:8080 &
               EOT
 
   tags = merge(local.common_tags, {
@@ -173,6 +228,10 @@ resource "aws_instance" "inventorying" {
     Role = "inventorying"
   })
 }
+
+# =============================
+# ⚖️ Application Load Balancer
+# =============================
 
 resource "aws_lb_target_group" "inventorying_app_group" {
   name     = "inventorying-app-group"
@@ -230,22 +289,21 @@ resource "aws_lb_listener" "http" {
   }
 }
 
+# =============================
+# 📤 Outputs
+# =============================
+
 output "load_balancer_dns" {
   description = "DNS name of the Application Load Balancer"
   value       = aws_lb.inventorying_lb.dns_name
 }
 
 output "inventorying_public_ips" {
-  description = "Public IP addresses for the inventorying service instances"
+  description = "Public IP addresses for the inventorying instances"
   value       = { for id, instance in aws_instance.inventorying : id => instance.public_ip }
 }
 
-output "inventorying_private_ips" {
-  description = "Private IP addresses for the inventorying service instances"
-  value       = { for id, instance in aws_instance.inventorying : id => instance.private_ip }
-}
-
 output "application_url" {
-  description = "URL to access the application through the Load Balancer"
+  description = "URL to access the application"
   value       = "http://${aws_lb.inventorying_lb.dns_name}"
 }
