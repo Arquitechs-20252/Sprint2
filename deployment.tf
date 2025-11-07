@@ -3,6 +3,7 @@
 # ********** Arquitectura y diseño de Software - ISIS2503 **********
 #
 # Infraestructura para laboratorio con Application Load Balancer
+#
 # ******************************************************************
 
 variable "region" {
@@ -64,8 +65,6 @@ data "aws_subnets" "default" {
   }
 }
 
-# ================== SECURITY GROUPS ==================
-
 resource "aws_security_group" "traffic_django" {
   name        = "traffic-django"
   description = "Allow application traffic on port 8080"
@@ -108,23 +107,6 @@ resource "aws_security_group" "traffic_lb" {
   })
 }
 
-resource "aws_security_group" "traffic_db" {
-  name        = "traffic-db"
-  description = "Allow PostgreSQL access"
-
-  ingress {
-    description = "Traffic from anywhere to DB"
-    from_port   = 5432
-    to_port     = 5432
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  tags = merge(local.common_tags, {
-    Name = "traffic-db"
-  })
-}
-
 resource "aws_security_group" "traffic_ssh" {
   name        = "traffic-ssh"
   description = "Allow SSH access"
@@ -150,37 +132,6 @@ resource "aws_security_group" "traffic_ssh" {
   })
 }
 
-# ================== DATABASE INSTANCE ==================
-
-resource "aws_instance" "database" {
-  ami                         = data.aws_ami.ubuntu.id
-  instance_type               = var.instance_type
-  associate_public_ip_address = true
-  vpc_security_group_ids      = [aws_security_group.traffic_db.id, aws_security_group.traffic_ssh.id]
-
-  user_data = <<-EOT
-              #!/bin/bash
-              exec > /var/log/terraform-bootstrap.log 2>&1
-
-              apt-get update -y
-              apt-get install -y postgresql postgresql-contrib
-
-              sudo -u postgres psql -c "CREATE USER monitoring_user WITH PASSWORD 'isis2503';"
-              sudo -u postgres createdb -O monitoring_user monitoring_db
-              echo "host all all 0.0.0.0/0 trust" >> /etc/postgresql/16/main/pg_hba.conf
-              echo "listen_addresses='*'" >> /etc/postgresql/16/main/postgresql.conf
-              echo "max_connections=2000" >> /etc/postgresql/16/main/postgresql.conf
-              systemctl restart postgresql
-              EOT
-
-  tags = merge(local.common_tags, {
-    Name = "arquitechs-db"
-    Role = "database"
-  })
-}
-
-# ================== INVENTORYING INSTANCES ==================
-
 resource "aws_instance" "inventorying" {
   for_each = toset(["a", "b"])
 
@@ -191,13 +142,8 @@ resource "aws_instance" "inventorying" {
 
   user_data = <<-EOT
               #!/bin/bash
-              exec > /var/log/terraform-bootstrap.log 2>&1
-
-              export DATABASE_HOST=${aws_instance.database.private_ip}
-              echo "DATABASE_HOST=${aws_instance.database.private_ip}" >> /etc/environment
-
-              apt-get update -y
-              apt-get install -y python3-pip git build-essential libpq-dev python3-dev
+              sudo apt-get update -y
+              sudo apt-get install -y python3-pip git build-essential libpq-dev python3-dev
 
               mkdir -p /labs
               cd /labs
@@ -209,32 +155,24 @@ resource "aws_instance" "inventorying" {
               cd Sprint2
               git fetch origin ${local.branch}
               git checkout ${local.branch}
-
-              pip3 install --upgrade pip --break-system-packages
-              pip3 install -r requirements.txt --break-system-packages
-
-              # Esperar a que la base de datos esté disponible
-              until pg_isready -h ${aws_instance.database.private_ip} -p 5432 -U monitoring_user; do
-                echo "Esperando que la base de datos esté lista..."
-                sleep 5
-              done
-
-              # Limpiar base local SQLite (si existe)
-              rm -f db.sqlite3
-
-              python3 manage.py makemigrations inventory
-              python3 manage.py migrate
+              sudo pip3 install --upgrade pip --break-system-packages
+              sudo pip3 install -r requirements.txt --break-system-packages
+              
+              # Aplicar migraciones locales (SQLite)
+              sudo python3 manage.py makemigrations
+              sudo python3 manage.py migrate
+              
+              # Crear producto inicial
+              echo "from inventory.models import InventoryProduct; \
+              InventoryProduct.objects.create(name='Producto Inicial', barcode='INIT-001', location='Bodega Principal', quantity=100)" \
+              | sudo python3 manage.py shell
               EOT
 
   tags = merge(local.common_tags, {
     Name = "inventorying-${each.key}"
     Role = "inventorying"
   })
-
-  depends_on = [aws_instance.database]
 }
-
-# ================== LOAD BALANCER ==================
 
 resource "aws_lb_target_group" "inventorying_app_group" {
   name     = "inventorying-app-group"
@@ -292,8 +230,6 @@ resource "aws_lb_listener" "http" {
   }
 }
 
-# ================== OUTPUTS ==================
-
 output "load_balancer_dns" {
   description = "DNS name of the Application Load Balancer"
   value       = aws_lb.inventorying_lb.dns_name
@@ -307,11 +243,6 @@ output "inventorying_public_ips" {
 output "inventorying_private_ips" {
   description = "Private IP addresses for the inventorying service instances"
   value       = { for id, instance in aws_instance.inventorying : id => instance.private_ip }
-}
-
-output "database_private_ip" {
-  description = "Private IP address for the PostgreSQL database instance"
-  value       = aws_instance.database.private_ip
 }
 
 output "application_url" {
